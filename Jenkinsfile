@@ -8,11 +8,11 @@ pipeline {
     stage('Checkout') {
       steps {
         checkout scm
-        sh 'echo "Branch: $(git rev-parse --abbrev-ref HEAD)" |& tee -a pipeline.log'
+        sh 'echo "Branch: $(git rev-parse --abbrev-ref HEAD)" 2>&1 | tee -a pipeline.log'
       }
     }
     stage('Install') {
-      steps { sh 'npm install |& tee -a pipeline.log' }
+      steps { sh 'npm ci |& tee -a pipeline.log' }
     }
     stage('Build') {
       steps { sh 'npm run build |& tee -a pipeline.log' }
