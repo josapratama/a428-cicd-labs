@@ -56,35 +56,52 @@ pipeline {
 
     // === Kriteria 2 & 3: Deploy + jeda 1 menit, lalu stop ===
     stage('Deploy') {
-      steps {
-        script {
-          // Dockerfile minimal untuk serve build via nginx
-          writeFile file: 'Dockerfile.deploy', text: """
-          FROM nginx:alpine
-          COPY build/ /usr/share/nginx/html
-          EXPOSE 80
-          """
+    steps {
+      script {
+        // Dockerfile multi-stage: build React di dalam image
+        writeFile file: 'Dockerfile.deploy', text: """
+        FROM node:18-alpine AS builder
+        WORKDIR /app
+        COPY package*.json ./
+        RUN npm ci
+        COPY . .
+        RUN npm run build
 
-          sh """
-            echo "== Build image deploy =="
-            docker build -t "${APP_IMAGE}" -f Dockerfile.deploy .
+        FROM nginx:alpine
+        COPY --from=builder /app/build /usr/share/nginx/html
+        EXPOSE 80
+        """
 
-            echo "== Run container =="
-            docker run -d --name "${APP_CONTAINER}" -p ${APP_PORT}:80 "${APP_IMAGE}"
-          """
+        // sangat disarankan ada .dockerignore untuk memperkecil context
+        writeFile file: '.dockerignore', text: """
+        node_modules
+        .git
+        .github
+        Jenkinsfile
+        pipeline.log
+        log.txt
+        """
 
-          echo "Aplikasi berjalan selama 60 detik di http://<host>:${APP_PORT}"
-          sleep time: 60, unit: 'SECONDS'  // jeda 1 menit sesuai kriteria
+        sh """
+          echo "== Build image deploy =="
+          docker build -t "${APP_IMAGE}" -f Dockerfile.deploy .
 
-          sh """
-            echo "== Stop & remove container =="
-            docker stop "${APP_CONTAINER}" || true
-            docker rm "${APP_CONTAINER}" || true
-          """
-        }
+          echo "== Run container =="
+          docker run -d --name "${APP_CONTAINER}" -p ${APP_PORT}:80 "${APP_IMAGE}"
+        """
+
+        echo "Aplikasi berjalan selama 60 detik di http://<host>:${APP_PORT}"
+        sleep time: 60, unit: 'SECONDS'
+
+        sh """
+          echo "== Stop & remove container =="
+          docker stop "${APP_CONTAINER}" || true
+          docker rm "${APP_CONTAINER}" || true
+        """
       }
     }
   }
+
 
   post {
     always {
