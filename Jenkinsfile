@@ -101,7 +101,7 @@ pipeline {
         }
       }
     }
-  } // <== penutup stages
+  }
 
   post {
     always {
@@ -110,4 +110,4 @@ pipeline {
       cleanWs()
     }
   }
-} // <== penutup pipeline
+}
